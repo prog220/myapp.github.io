@@ -1,0 +1,353 @@
+<div class="todo-container" style="max-width: 100%; margin: 0 auto; padding: 20px;">
+  <div class="add-todo" style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+    <input type="text" id="todoInput" placeholder="Введите задачу" style="flex-grow: 1; padding: 15px; border: 2px solid #ccc; border-radius: 8px; font-size: 20px;">
+    <button id="micButton" style="background-color: #f0f0f0; border: none; border-radius: 8px; padding: 15px; margin-left: 10px; font-size: 20px;"><i class="fas fa-microphone"></i></button>
+    <button id="addButton" style="background-color: #4CAF50; color: white; border: none; border-radius: 8px; padding: 15px; margin-left: 10px; font-size: 20px;">+</button>
+  </div>
+  <ul id="todoList" style="padding-left: 0; font-size: 20px; list-style-type: none;"></ul>
+</div>
+<head><meta charset="UTF-8">
+</head>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const todoInput = document.getElementById('todoInput');
+    const micButton = document.getElementById('micButton');
+    const addButton = document.getElementById('addButton');
+    const todoList = document.getElementById('todoList');
+
+    addButton.addEventListener('click', addTodo);
+    micButton.addEventListener('click', toggleSpeechRecognition);
+
+    let recognition;
+    let isListening = false;
+
+    // Загрузка сохраненных задач при открытии страницы
+    loadTodos();
+    
+    // Создание кнопки меню
+    const menuButton = document.createElement('button');
+    menuButton.id = 'menuButton';
+    menuButton.innerHTML = '☰';
+    menuButton.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      font-size: 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 1001;
+    `;
+    document.body.appendChild(menuButton);
+    
+    // Создание меню
+    const menu = document.createElement('div');
+    menu.id = 'menu';
+    menu.style.cssText = `
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      background-color: #f1f1f1;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 1000;
+    `;
+    menu.innerHTML = `
+      <select id="themeSelect">
+        <option value="light">Светлая тема</option>
+        <option value="dark">Темная тема</option>
+      </select>
+      <select id="languageSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="uk">Українська</option>
+        <option value="de">Deutsch</option>
+      </select>
+      <button id="aboutButton">О программе</button>
+    `;
+    document.body.appendChild(menu);
+    
+    // Обработчик для кнопки меню
+    menuButton.addEventListener('click', () => {
+      menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
+    });
+    
+    // Обработчики событий для элементов меню
+    document.getElementById('themeSelect').addEventListener('change', changeTheme);
+    document.getElementById('languageSelect').addEventListener('change', changeLanguage);
+    document.getElementById('aboutButton').addEventListener('click', showAboutInfo);
+    
+    function changeTheme(event) {
+      const isDarkTheme = event.target.value === 'dark';
+      document.body.classList.toggle('dark-theme', isDarkTheme);
+      localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+      
+      // Обновление стилей для темной темы
+      if (isDarkTheme) {
+        document.body.style.backgroundColor = '#333';
+        document.body.style.color = '#fff';
+        document.querySelectorAll('input, button, select').forEach(el => {
+          el.style.backgroundColor = '#555';
+          el.style.color = '#fff';
+        });
+      } else {
+        document.body.style.backgroundColor = '#fff';
+        document.body.style.color = '#000';
+        document.querySelectorAll('input, button, select').forEach(el => {
+          el.style.backgroundColor = '#fff';
+          el.style.color = '#000';
+          el.style.charset = 'UTF-8';
+        });
+      }
+    }
+    
+    function changeLanguage(event) {
+      const lang = event.target.value;
+      document.documentElement.lang = lang;
+      localStorage.setItem('language', lang);
+      
+      // Объект с переводами
+      const translations = {
+        ru: {
+          addTodo: 'Добавить задачу',
+          enterTask: 'Введите задачу',
+          delete: 'Удалить',
+          lightTheme: 'Светлая тема',
+          darkTheme: 'Темная тема',
+          about: 'О программе',
+          aboutText: 'Разработчик: Егор Ушатенко'
+        },
+        de: {
+          addTodo: 'Aufgabe hinzufügen',
+          enterTask: 'Aufgabe eingeben',
+          delete: 'Löschen',
+          lightTheme: 'Helles Design',
+          darkTheme: 'Dunkles Design',
+          about: 'Info',
+          aboutText: 'Dies ist eine Aufgabenverwaltungsanwendung mit Spracheingabefunktion.'
+        },
+        en: {
+            addTodo: 'Add task',
+          enterTask: 'Enter a task',
+          delete: 'Delete',
+          lightTheme: 'Light theme',
+          darkTheme: 'Dark theme',
+          about: 'About',
+          aboutText: 'This is a task management application with voice input capability.'
+        },
+        uk: {
+            addTodo: 'Додати завдання',
+            enterTask: 'Введіть завдання',
+            delete: 'Видалити',
+            lightTheme: 'Світла тема',
+            darkTheme: 'Темна тема',
+            about: 'Про программу',
+            aboutText: 'Це програма для керування завданнями з можливістю голосового введення.'
+        }
+        
+      };
+      
+      // Обновление текстов интерфейса
+      document.getElementById('addButton').textContent = translations[lang].addTodo;
+      document.getElementById('todoInput').placeholder = translations[lang].enterTask;
+      document.querySelectorAll('.deleteButton').forEach(button => {
+        button.textContent = translations[lang].delete;
+      });
+      document.querySelector('#themeSelect option[value="light"]').textContent = translations[lang].lightTheme;
+      document.querySelector('#themeSelect option[value="dark"]').textContent = translations[lang].darkTheme;
+      document.getElementById('aboutButton').textContent = translations[lang].about;
+      
+      // Обновление текста в функции showAboutInfo
+      aboutText = translations[lang].aboutText;
+    }
+    
+    let aboutText = 'Это приложение для управления списком задач с возможностью голосового ввода.';
+    
+    function showAboutInfo() {
+      const aboutDiv = document.createElement('div');
+      aboutDiv.textContent = aboutText;
+      aboutDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #f1f1f1;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        z-index: 1002;
+      `;
+      document.body.appendChild(aboutDiv);
+      
+      // Закрытие окна при клике вне его
+      setTimeout(() => {
+        const closeAbout = (e) => {
+          if (!aboutDiv.contains(e.target)) {
+            document.body.removeChild(aboutDiv);
+            document.removeEventListener('click', closeAbout);
+          }
+        };
+        document.addEventListener('click', closeAbout);
+      }, 0);
+    }
+    
+    // Загрузка сохраненных настроек
+    const savedTheme = localStorage.getItem('theme');
+    const savedLanguage = localStorage.getItem('language');
+    
+    if (savedTheme) {
+      document.getElementById('themeSelect').value = savedTheme;
+      changeTheme({ target: { value: savedTheme } });
+    }
+    
+    if (savedLanguage) {
+      document.getElementById('languageSelect').value = savedLanguage;
+      changeLanguage({ target: { value: savedLanguage } });
+    }
+
+    function addTodo() {
+      const todoText = todoInput.value.trim();
+      if (todoText) {
+        const li = createTodoItem(todoText, false);
+        todoList.appendChild(li);
+        todoInput.value = '';
+        saveTodos();
+      }
+    }
+
+    function createTodoItem(text, completed) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <input type="checkbox" ${completed ? 'checked' : ''}>
+        <span>${text}</span>
+        <button class="deleteButton">Удалить</button>
+      `;
+      li.classList.toggle('completed', completed);
+
+      li.querySelector('input[type="checkbox"]').addEventListener('change', function() {
+        li.classList.toggle('completed');
+        saveTodos();
+      });
+
+      li.querySelector('.deleteButton').addEventListener('click', function() {
+        li.remove();
+        saveTodos();
+      });
+
+      return li;
+    }
+
+    function toggleSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window)) {
+        alert('Ваш браузер не поддерживает распознавание речи');
+        return;
+      }
+
+      if (!recognition) {
+        recognition = new webkitSpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = function(event) {
+          const transcript = Array.from(event.results)
+            .map(result => result[0].transcript)
+            .join('');
+          todoInput.value = transcript;
+        };
+
+        recognition.onerror = function(event) {
+          console.error('Ошибка распознавания речи:', event.error);
+        };
+      }
+
+      if (isListening) {
+        recognition.stop();
+        micButton.classList.remove('active');
+      } else {
+        recognition.start();
+        micButton.classList.add('active');
+      }
+
+      isListening = !isListening;
+    }
+
+    function saveTodos() {
+      const todos = Array.from(todoList.children).map(li => ({
+        text: li.querySelector('span').textContent,
+        completed: li.classList.contains('completed')
+      }));
+      localStorage.setItem('todos', JSON.stringify(todos));
+    }
+
+    function loadTodos() {
+      const savedTodos = JSON.parse(localStorage.getItem('todos') || '[]');
+      savedTodos.forEach(todo => {
+        const li = createTodoItem(todo.text, todo.completed);
+        todoList.appendChild(li);
+      });
+    }
+  });
+</script>
+
+<style>
+  .todo-container {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .add-todo {
+    display: flex;
+    margin-bottom: 10px;
+  }
+  #todoInput {
+    flex-grow: 1;
+    padding: 5px;
+  }
+  #micButton, #addButton {
+    padding: 5px 10px;
+    margin-left: 5px;
+  }
+  #micButton {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  #micButton i {
+    font-size: 20px;
+  }
+  #micButton.active i {
+    color: #ff4444;
+  }
+  #todoList {
+    list-style-type: none;
+    padding: 0;
+  }
+  #todoList li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  #todoList li.completed span {
+    text-decoration: line-through;
+  }
+  #todoList li input[type="checkbox"] {
+    margin-right: 10px;
+  }
+  .deleteButton {
+    margin-left: auto;
+    padding: 2px 5px;
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+</style>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+
+
+
